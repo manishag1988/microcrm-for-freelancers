@@ -4,65 +4,7 @@ const router = express.Router();
 const db = global.db;
 const { authenticateToken } = require('../middleware/auth');
 
-// Get all time logs
-router.get('/', authenticateToken, (req, res) => {
-  try {
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
-    
-    const timeLogs = db.timelog.getAllByUser(req.user.id, limit, offset);
-    const total = db.timelog.getCountByUser(req.user.id);
-    
-    res.json({
-      data: timeLogs,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Get time logs error:', error);
-    res.status(500).json({ error: 'Failed to fetch time logs' });
-  }
-});
-
-// Get time log stats
-router.get('/stats', authenticateToken, (req, res) => {
-  try {
-    const stats = db.timelog.getStats(req.user.id);
-    res.json(stats);
-  } catch (error) {
-    console.error('Get time log stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
-  }
-});
-
-// Get active timer
-router.get('/active', authenticateToken, (req, res) => {
-  try {
-    const activeLog = db.timelog.getActive(req.user.id);
-    res.json(activeLog);
-  } catch (error) {
-    console.error('Get active timer error:', error);
-    res.status(500).json({ error: 'Failed to fetch active timer' });
-  }
-});
-
-// Get time logs by project
-router.get('/project/:projectId', authenticateToken, (req, res) => {
-  try {
-    const timeLogs = db.timelog.getByProject(req.params.projectId, req.user.id);
-    res.json(timeLogs);
-  } catch (error) {
-    console.error('Get project time logs error:', error);
-    res.status(500).json({ error: 'Failed to fetch time logs' });
-  }
-});
-
-// Start timer
+// Start timer (POST specific route)
 router.post('/start', authenticateToken, (req, res) => {
   try {
     const { project_id, description, billable } = req.body;
@@ -91,7 +33,7 @@ router.post('/start', authenticateToken, (req, res) => {
   }
 });
 
-// Stop timer
+// Stop timer (POST specific route)
 router.post('/stop/:id', authenticateToken, (req, res) => {
   try {
     const timeLog = db.timelog.stop(req.params.id, req.user.id);
@@ -102,6 +44,64 @@ router.post('/stop/:id', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Stop timer error:', error);
     res.status(500).json({ error: 'Failed to stop timer: ' + error.message });
+  }
+});
+
+// Get time log stats (GET specific route)
+router.get('/stats', authenticateToken, (req, res) => {
+  try {
+    const stats = db.timelog.getStats(req.user.id);
+    res.json(stats);
+  } catch (error) {
+    console.error('Get time log stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Get active timer (GET specific route)
+router.get('/active', authenticateToken, (req, res) => {
+  try {
+    const activeLog = db.timelog.getActive(req.user.id);
+    res.json(activeLog);
+  } catch (error) {
+    console.error('Get active timer error:', error);
+    res.status(500).json({ error: 'Failed to fetch active timer' });
+  }
+});
+
+// Get time logs by project (GET specific route)
+router.get('/project/:projectId', authenticateToken, (req, res) => {
+  try {
+    const timeLogs = db.timelog.getByProject(req.params.projectId, req.user.id);
+    res.json(timeLogs);
+  } catch (error) {
+    console.error('Get project time logs error:', error);
+    res.status(500).json({ error: 'Failed to fetch time logs' });
+  }
+});
+
+// Get all time logs
+router.get('/', authenticateToken, (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    
+    const timeLogs = db.timelog.getAllByUser(req.user.id, limit, offset);
+    const total = db.timelog.getCountByUser(req.user.id);
+    
+    res.json({
+      data: timeLogs,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get time logs error:', error);
+    res.status(500).json({ error: 'Failed to fetch time logs' });
   }
 });
 
