@@ -19,6 +19,9 @@ const USE_PG = process.env.DATABASE_URL || process.env.PG_CONNECTION_STRING;
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Trust proxy for rate limiting and headers when behind a reverse proxy (e.g., Railway)
+app.set('trust proxy', 1);
+
 const allowedOrigins = isProduction 
   ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
