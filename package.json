@@ -1,0 +1,42 @@
+{
+  "name": "micro-crm",
+  "version": "1.0.0",
+  "description": "A modern Micro-CRM for Freelancers - 100% Free SaaS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "server/**/*.js",
+      "!server/models/database-pg.js"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js",
+      "**/__tests__/**/*.js"
+    ]
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mime": "^4.1.0",
+    "nodemailer": "^7.0.0",
+    "pg": "^8.11.3",
+    "sql.js": "^1.10.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2"
+  }
+}
