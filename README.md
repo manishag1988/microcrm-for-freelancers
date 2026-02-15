@@ -6,7 +6,7 @@ A modern, fully-functional Customer Relationship Management (CRM) application de
 
 ## Features
 
-> **Latest Update (v1.1.0):** Route conflict fixes, invoice form accessibility improvements, timer workflow enhancements, and general bug fixes.
+> **Latest Update (v1.1.1):** Proxy trust configuration fix for rate limiting in production (Railway), timelog route reorganization to prevent 404 errors, and improved deployment stability.
 
 ### Core Functionality
 
@@ -41,7 +41,7 @@ A modern, fully-functional Customer Relationship Management (CRM) application de
 The application is built using entirely free and open-source technologies:
 
 - **Backend:** Node.js with Express.js
-- **Database:** SQLite (file-based, no setup required)
+- **Database:** SQLite (development) or PostgreSQL (production with Railway)
 - **Authentication:** JSON Web Tokens (JWT) with bcryptjs
 - **Frontend:** Vanilla HTML5, CSS3, and JavaScript (ES6 Modules)
 - **No External Dependencies:** All icons are inline SVGs, fonts load from Google Fonts
@@ -82,127 +82,186 @@ http://localhost:3000
 
 6. Change the default password after first login by clicking on your user avatar and selecting "Settings".
 
-## Deployment to Render.com
+> **Important Note on Hosting:** 
+> - **Render.com** no longer offers persistent disks on the free tier, making it unsuitable for SQLite-based apps
+> - **Railway.app** is the recommended free hosting option - it includes persistent PostgreSQL with $5/month free credit
+> - **DigitalOcean** free tier has traffic limitations but can work with proper configuration
 
-Render.com offers a free tier that's perfect for hosting this application, including persistent storage for the SQLite database.
+## Deployment Options Comparison
 
-### Step 1: Prepare Your Code
+| Platform | Free Tier | Database | Pros | Cons |
+|----------|-----------|----------|------|------|
+| **Railway.app** ⭐ | $5/mo credit | PostgreSQL | Generous free credit, easy setup, unlimited traffic | Limited to $5/mo |
+| Render.com | Limited | SQLite | Previously popular | ❌ No persistent disk on free tier |
+| DigitalOcean | Limited | PostgreSQL/MySQL | Good performance | Traffic limitations |
+| Heroku | Discontinued | - | - | ❌ Free tier discontinued |
 
-Ensure your code is pushed to a GitHub repository:
+
+
+## Deployment to Railway.app (Recommended)
+
+Railway.app provides a free tier with persistent PostgreSQL database and $5/month free credit. This is the **recommended** deployment option for Micro-CRM.
+
+### Quick Start via Railway CLI
+
+#### Step 1: Install Railway CLI
+```bash
+npm i -g @railway/cli
+```
+
+#### Step 2: Login to Railway
+```bash
+railway login
+```
+
+#### Step 3: Link to Your Project
+```bash
+railway link
+# Select "Create a new project" if you haven't created one
+```
+
+#### Step 4: Deploy the Application
+```bash
+railway up
+```
+
+#### Step 5: Add PostgreSQL Database
+```bash
+railway add
+# Select "PostgreSQL" from the menu
+```
+
+#### Step 6: Set Required Environment Variables
+```bash
+railway variables set NODE_ENV=production
+railway variables set JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+```
+
+#### Step 7: Open Your App
+```bash
+railway open
+```
+
+Your app will be accessible at the Railway-provided URL (e.g., `https://your-project-name.up.railway.app`)
+
+### Setup via Railway Dashboard
+
+1. Go to [Railway.app](https://railway.app)
+2. Sign up with GitHub account
+3. Click **"New Project"** → **"Deploy from GitHub repo"**
+4. Select your **microcrm-for-freelancers** repository
+5. Railway will auto-detect Node.js and start the initial deployment
+
+**Configure Database:**
+1. After initial deployment, click **"New"** → **"Database"** → **"PostgreSQL"**
+2. Railway automatically sets `DATABASE_URL` environment variable
+3. Redeploy after database is provisioned
+
+**Set Environment Variables:**
+1. Click on your service
+2. Go to **"Variables"** tab
+3. Add the following variables:
+   - `NODE_ENV`: `production`
+   - `JWT_SECRET`: Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+   - `ADMIN_PASSWORD`: Your secure admin password
+
+### Railway Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `NODE_ENV` | **Yes** | production | Must be set to `production` |
+| `JWT_SECRET` | **Yes** | - | 32+ character random string for token signing |
+| `ADMIN_EMAIL` | No | admin@microcrm.com | Admin email address |
+| `ADMIN_PASSWORD` | No | Auto-generated | Admin password (user will be prompted to change on first login) |
+| `DATABASE_URL` | Auto-set | - | PostgreSQL connection string (set automatically by Railway PostgreSQL plugin) |
+| `ALLOWED_ORIGINS` | No | - | Comma-separated list of allowed CORS origins |
+| `SMTP_HOST` | No | - | SMTP server hostname (for email notifications) |
+| `SMTP_PORT` | No | 587 | SMTP port |
+| `SMTP_USER` | No | - | SMTP username |
+| `SMTP_PASS` | No | - | SMTP password |
+| `SMTP_FROM` | No | - | From email address for notifications |
+| `PORT` | No | 3000 | Server port (Railway sets this automatically) |
+| `LOG_REQUESTS` | No | false | Set to `true` to log all requests in production |
+
+### Production Configuration Notes
+
+**Proxy Trust:**
+- Railway uses a reverse proxy, so `trust proxy` is enabled in the Express configuration
+- This is essential for rate limiting to work correctly  
+- Rate limiting identifies users by their real IP address
+
+**Database:**
+- SQLite is used for development mode (when `DATABASE_URL` is not set)
+- PostgreSQL is automatically used when `DATABASE_URL` is provided
+- Railway's PostgreSQL plugin provides a free database with reliable backups
+
+**Security:**
+- All connections to Railway are over HTTPS
+- JWT tokens are signed with your `JWT_SECRET`
+- Change default admin password immediately after first login
+- Use HTTP-only secure cookies for session management
+
+### After Deployment
+
+1. Access your app at the Railway-provided URL
+2. Log in with default credentials:
+   - **Email:** `admin@microcrm.com`
+   - **Password:** `Admin123!` (or your `ADMIN_PASSWORD` if set)
+3. **Change the admin password** immediately in Settings
+
+### Redeploying Updates
 
 ```bash
-git init
+# Make changes and commit
 git add .
-git commit -m "Initial commit: Micro-CRM for Freelancers"
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-git push -u origin main
+git commit -m "Your changes"
+git push origin main
+
+# Redeploy to Railway
+railway up
 ```
 
-### Step 2: Create Render Account
+Or through the Railway dashboard:
+1. Click **"Deployments"** tab
+2. Click **"Deploy latest commit"** button
 
-1. Go to [Render.com](https://render.com) and sign up using your GitHub account
-2. Authorize Render to access your GitHub repositories
+### Troubleshooting Railway Deployment
 
-### Step 3: Create Web Service
+**App crashes immediately after deployment:**
+- Check that `JWT_SECRET` is set in Variables
+- Railway requires `JWT_SECRET` in production mode
+- Verify all required variables are present
 
-1. From the Render dashboard, click "New +" and select "Web Service"
-2. Connect your GitHub repository containing the Micro-CRM code
-3. Configure the service with the following settings:
+**Database connection fails:**
+- Ensure PostgreSQL plugin is added to your project
+- Check that `DATABASE_URL` is set automatically by Railway
+- Wait for PostgreSQL to fully initialize (may take 1-2 minutes)
 
-| Setting | Value |
-|---------|-------|
-| Name | micro-crm |
-| Branch | main |
-| Build Command | npm install |
-| Start Command | npm start |
-| Plan | Free |
+**Rate limiting errors (ValidationError with X-Forwarded-For):**
+- This is fixed in v1.1.1+ with proper proxy trust configuration
+- Ensure you're running the latest version from GitHub
 
-4. Click "Advanced" and add environment variables:
-   - `NODE_ENV`: `production`
-   - `JWT_SECRET`: Generate a random string (at least 32 characters)
+**Login returns 401 errors:**
+- Clear browser cookies and cache
+- Verify `JWT_SECRET` is correctly set
+- Try in an incognito/private browser window
+- Check that the admin user was created in the database
 
-To generate a secure JWT secret, run:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+**Static files return 404:**
+- Ensure all files were pushed to GitHub
+- Verify the `public` directory and its contents are in the repository
+- Redeploy after pushing changes
 
-### Step 4: Configure Persistent Disk
-
-SQLite requires a persistent disk to store the database file:
-
-1. In the advanced settings, find the "Disks" section
-2. Click "Add Disk"
-3. Configure:
-   - **Name:** `micro-crm-data`
-   - **Mount Path:** `/workspace/micro-crm`
-   - **Size:** 1GB
-
-4. Click "Create Disk" then "Create Web Service"
-
-### Step 5: Configure Environment Variables
-
-Add the following required environment variables in the "Environment Variables" section:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NODE_ENV` | Yes | Set to `production` |
-| `JWT_SECRET` | Yes | Secret key for JWT tokens (min 32 chars) |
-| `ADMIN_EMAIL` | No | Admin email (default: admin@microcrm.com) |
-| `ADMIN_PASSWORD` | Yes (production) | Admin password (strongly recommended for production) |
-| `ALLOWED_ORIGINS` | No | Comma-separated list of allowed CORS origins |
-| `SMTP_HOST` | No | SMTP server for emails |
-| `SMTP_PORT` | No | SMTP port (default: 587) |
-| `SMTP_USER` | No | SMTP username |
-| `SMTP_PASS` | No | SMTP password |
-| `SMTP_FROM` | No | From email address |
-| `DATABASE_URL` | No | PostgreSQL connection string (optional) |
-
-To generate a secure JWT secret, run:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-## Deployment to Railway.app
-
-Railway.app provides another excellent option for free hosting with easy deployment.
-
-### Step 1: Prepare and Push to GitHub
-
-Follow the same steps as Render.com to push your code to GitHub.
-
-### Step 2: Create Railway Account
-
-1. Go to [Railway.app](https://railway.app) and sign up with GitHub
-2. Authorize Railway to access your repositories
-
-### Step 3: Deploy from GitHub
-
-1. Click "New Project" on the Railway dashboard
-2. Select "Deploy from GitHub repo"
-3. Choose your Micro-CRM repository
-4. Railway will automatically detect it's a Node.js project
-5. Click "Deploy Now"
-
-### Step 4: Configure Environment
-
-1. Go to the "Variables" tab in your Railway project
-2. Add the following variables:
-   - `NODE_ENV`: `production`
-   - `JWT_SECRET`: Your generated secret key
-
-### Step 5: Add Persistent Storage
-
-1. Go to the "Storage" tab
-2. Click "New Database" and select "PostgreSQL" or "MySQL"
-3. Note: For SQLite, Railway doesn't offer direct persistent disk. Consider using the PostgreSQL add-on and updating the database configuration, or use Render.com for SQLite persistence.
-
-### Step 6: Access Your Application
-
-Once deployed, Railway provides a URL for your application. The deployment process typically takes 3-5 minutes.
+**Slow page loads:**
+- Check Railway dashboard for resource usage
+- PostgreSQL queries may be optimized with indexes
+- Monitor logs for performance issues
 
 ## Deployment to DigitalOcean App Platform
 
-DigitalOcean offers a free tier for app hosting with good performance.
+> **⚠️ Note:** DigitalOcean's free tier is limited with restricted outbound traffic and database options. **Railway.app is recommended for free hosting.**
+
+DigitalOcean offers app hosting with good performance but requires careful configuration for CDN usage.
 
 ### Step 1: Prepare Your Code
 
@@ -253,14 +312,19 @@ git commit -m "Description of changes"
 git push origin main
 ```
 
-### Render.com Updates
+### Railway.app Updates
 
-Render automatically deploys when changes are pushed to the connected branch:
+Railway automatically deploys when changes are pushed to the connected branch:
 
 1. Push your changes to GitHub
-2. Render detects the new commit automatically
-3. Watch the deployment logs in the Render dashboard
+2. Railway detects the new commit automatically
+3. Watch the deployment logs in the Railway dashboard
 4. Once complete, your live application is updated
+
+To manually redeploy:
+```bash
+railway up
+```
 
 ### Manual Redeploy on Render
 
@@ -271,14 +335,14 @@ If automatic deployment doesn't trigger:
 3. Click "Deploy latest commit" at the top
 4. Wait for deployment to complete
 
-### Rollback on Render
+### Rollback on Railway
 
-To revert to a previous version:
+To revert to a previous deployment:
 
-1. Go to the "Deployments" tab
-2. Find the previous deployment you want to restore
-3. Click the three-dot menu and select "Deploy to"
-4. Confirm the rollback
+1. Go to your project in Railway dashboard
+2. Click on the "Deployments" tab
+3. Find the previous deployment you want to restore
+4. Click "Redeploy"
 
 ## Environment Variables Reference
 
@@ -437,7 +501,56 @@ Note: Recurring invoices are automatically processed hourly via cron job.
 | POST | /api/portal/portal/generate-token/:clientId | Generate client access token |
 | POST | /api/portal/portal/revoke-token/:clientId | Revoke client access token |
 
-## Default Credentials
+## Recent Changes & Version History
+
+### v1.1.1 (Latest)
+- ✅ Fixed proxy trust configuration for rate limiting in production environments (Railway)
+- ✅ Reorganized timelog routes to prevent 404 errors on `/api/timelogs/stop/:id` endpoint
+- ✅ Improved deployment stability on Railway.app with PostgreSQL
+- ✅ Updated documentation with comprehensive Railway deployment guide
+
+**What was fixed:**
+- Express `trust proxy` setting is now enabled for production deployments behind reverse proxies
+- Rate limiting errors (`ValidationError: X-Forwarded-For`) are now resolved
+- Timelog stop endpoint now works correctly on all deployments
+
+### v1.1.0
+- Route conflict fixes
+- Invoice form accessibility improvements
+- Timer workflow enhancements
+- General bug fixes
+
+### v1.0.1
+- Fixed critical login bug
+- Improved authentication middleware
+- Enhanced error handling
+
+### v1.0.0
+- Initial release
+- Full CRM functionality for freelancers
+- Dashboard, client management, projects, tasks, invoices, time tracking, admin panel
+
+## Migration Guide
+
+### From v1.0.x to v1.1.1
+
+If you have an existing Railway deployment from v1.0.x:
+
+1. Pull the latest code:
+```bash
+git pull origin main
+```
+
+2. Push to GitHub:
+```bash
+git push origin main
+```
+
+3. Railway will automatically redeploy with the latest fixes
+
+No database migration is required. The app is fully backward compatible.
+
+
 
 The application creates a default admin account on first run. Credentials can be configured via environment variables:
 
@@ -453,7 +566,9 @@ The application creates a default admin account on first run. Credentials can be
 
 ## Troubleshooting
 
-### Application Won't Start
+### Local Development Issues
+
+#### Application Won't Start
 
 **Problem:** `Error: listen EADDRINUSE: address already in use 3000`
 
@@ -462,39 +577,156 @@ The application creates a default admin account on first run. Credentials can be
 PORT=3001 npm start
 ```
 
-### Database Errors
+#### Database Errors
 
 **Problem:** `Error: SQLITE_ERROR: no such table: users`
 
-**Solution:** The database hasn't been initialized. Ensure the application has write permissions to its directory. On Render.com, verify the persistent disk is properly mounted.
+**Solution:** The database hasn't been initialized. Ensure the application has write permissions to its directory. Run locally and access the app to initialize the database.
 
-### Login Failures
+### Railway Deployment Issues
 
-> **Note (v1.0.1):** A critical bug causing login to not work has been fixed in the latest version. If you have an older deployment, please pull the latest code.
+#### App Crashes Immediately on Deploy
 
-**Problem:** Login returns "Invalid credentials" even with correct password
+**Problem:** App crashes with "Uncaught Exception" shortly after deployment starts
 
-**Solution:**
-1. Clear browser cookies and cache
-2. Try in incognito/private mode
-3. Check that JWT_SECRET is correctly set in environment variables
-4. Verify the database contains the user record
+**Solutions:**
+1. **Check JWT_SECRET is set:**
+   - Go to Railway dashboard → Your project → Variables
+   - Verify `JWT_SECRET` variable exists and is at least 32 characters
+   - Generate one: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
-### Static Files Not Loading
+2. **Check NODE_ENV:**
+   - Ensure `NODE_ENV` is set to `production`
+
+3. **Restart deployment:**
+   - Make a small commit and push: `git commit --allow-empty -m "Trigger redeploy"`
+   - Or click "Deploy latest commit" in Railway dashboard
+
+#### Database Connection Fails (ECONNREFUSED)
+
+**Problem:** `Error: connect ECONNREFUSED` at database connection
+
+**Solutions:**
+1. **Add PostgreSQL if missing:**
+   - Go to Railway dashboard
+   - Click "+ New" → "Database" → "PostgreSQL"
+   - Wait 1-2 minutes for database to initialize
+
+2. **Verify DATABASE_URL:**
+   - Check Variables - Railway should auto-set `DATABASE_URL`
+   - If missing, create it with your PostgreSQL public URL
+
+3. **Wait for PostgreSQL to start:**
+   - Services take time to initialize
+   - Check the PostgreSQL service logs to see startup progress
+
+#### Rate Limiting Errors (ValidationError with X-Forwarded-For)
+
+**Problem:** `ValidationError: The 'X-Forwarded-For' header is set...`
+
+**Solutions:**
+- **This is fixed in v1.1.1+**
+- Ensure you're running the latest code:
+  ```bash
+  git pull origin main
+  git push origin main
+  railway up
+  ```
+
+#### Login Returns 401 Errors
+
+**Problem:** Login fails with `401 (Unauthorized)` response
+
+**Solutions:**
+1. **Clear browser cache and cookies:**
+   - Open DevTools (F12) → Application → Clear all cookies and cache
+   - Reload the page
+
+2. **Try incognito mode:**
+   - Open in incognito/private browser window
+
+3. **Verify JWT_SECRET:**
+   - Check that `JWT_SECRET` is properly set in Variables
+   - It should be at least 32 random characters
+
+4. **Check admin user exists:**
+   - Admin user should be auto-created on first deployment
+   - Default credentials: email=`admin@microcrm.com`, password=`Admin123!`
+   - If issues persist, set `ADMIN_PASSWORD` environment variable
+
+5. **Check logs for errors:**
+   - Go to Railway dashboard → Deployments → Latest deployment
+   - Look for authentication or JWT-related errors
+
+#### Time Tracker Stop Endpoint Returns 404
+
+**Problem:** `POST /api/timelogs/stop/:id` returns `404 (Not Found)`
+
+**Solutions:**
+- **This is fixed in v1.1.1+**
+- Route ordering issue was corrected
+- Update to latest version:
+  ```bash
+  git pull origin main
+  git push origin main
+  railway up
+  ```
+
+#### Static Files Not Loading
 
 **Problem:** CSS or JavaScript files return 404 or 500 errors
 
-**Solution:** Ensure all files are committed and pushed to GitHub. Verify the `public` directory and its contents are present in the deployed code.
+**Solutions:**
+1. Ensure all files were pushed to GitHub
+2. Verify the `public` directory and its contents are committed
+3. Check deployment logs for missing files
+4. Rebuild and redeploy:
+   ```bash
+   git push origin main
+   railway up
+   ```
 
-### Can't Create Projects, Tasks, or Invoices
+#### Can't Create Projects, Tasks, or Invoices
 
-**Problem:** Unable to create new projects, tasks, or invoices
+**Problem:** Unable to create new items
 
-**Solution:**
+**Solutions:**
 1. Ensure you're logged in (authentication required)
-2. Check that required fields are filled (e.g., project name, task title, client for invoice)
-3. For invoices, at least one item is required
-4. Restart the server to apply route configuration changes
+2. Check that required fields are filled
+3. For invoices, at least one line item is required
+4. Check browser console for validation errors
+5. Verify user has proper permissions
+
+### Browser Console Issues
+
+#### "Uncaught (in promise) Error: A listener indicated an asynchronous response..."
+
+**Problem:** Error appears in console but app works fine
+
+**Solution:** This is usually caused by browser extensions (password managers, ad blockers, etc.)
+- Disable extensions temporarily to verify
+- The error doesn't affect app functionality
+- Safe to ignore if app works normally
+
+### Running Out of Disk Space
+
+**Problem:** Deployment fails with disk space error
+
+**Solutions:**
+- Clear unnecessary database records
+- Archive old invoices and time logs
+- For Railway PostgreSQL, disk space is generous but can be monitored
+
+### Cannot Access App After Deployment
+
+**Problem:** Railway URL returns 503 or timeout
+
+**Solutions:**
+1. Check Railway dashboard for deployment status
+2. Wait for deployment to complete (usually 2-5 minutes)
+3. Check build logs for errors
+4. Try refreshing the page after a few minutes
+5. Ensure PORT is not set in Variables (Railway sets it automatically)
 
 ### Session Not Persisting
 
@@ -504,13 +736,14 @@ PORT=3001 npm start
 
 ### Performance Issues
 
-**Problem:** Slow page loads or timeouts
+**Problem:** Slow page loads or timeouts on Railway
 
 **Solution:**
-- Check the application isn't exceeding free tier memory limits
-- Optimize database queries by adding indexes
-- Consider upgrading to a paid plan for better performance
-- Monitor usage patterns to identify bottlenecks
+- Monitor Railway dashboard for resource usage
+- Optimize database queries with proper indexing
+- Check PostgreSQL query performance
+- Ensure no background processes are hogging resources
+- Performance varies by usage patterns - Railway free tier is generous
 
 ## Security Considerations
 
@@ -523,6 +756,7 @@ PORT=3001 npm start
 5. **Token Blacklist** - Logged out tokens are invalidated
 6. **CORS Configuration** - Configurable allowed origins for production
 7. **bcrypt Hashing** - Passwords hashed with cost factor 12
+8. **Proxy Trust** - Properly configured for reverse proxy environments (v1.1.1+)
 
 ### Production Recommendations
 
@@ -534,7 +768,7 @@ PORT=3001 npm start
    ALLOWED_ORIGINS=https://yourdomain.com
    ```
 
-2. **HTTPS Only:** In production, ensure SSL/TLS is enabled. Render.com provides automatic HTTPS for custom domains.
+2. **HTTPS Only:** In production, ensure SSL/TLS is enabled. Railway.app provides automatic HTTPS.
 
 3. **SMTP Configuration:** Configure email for password reset functionality:
    - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
@@ -554,7 +788,7 @@ git commit -m "Update dependencies"
 git push
 ```
 
-2. **Database Backups:** While Render's persistent disk provides durability, consider regular backups for critical data.
+2. **Database Backups:** Railway's PostgreSQL provides persistence, but consider regular backups for critical data using the Railway dashboard or `pg_dump`.
 
 3. **Monitor Logs:** Regularly review application logs for suspicious activity or errors.
 
